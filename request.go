@@ -1,6 +1,7 @@
 package response
 
 import (
+	"github.com/gorilla/mux"
 	"github.com/suboat/go-response/log"
 	"github.com/suboat/go-response/session"
 
@@ -109,7 +110,7 @@ func SerializeHttp(rw http.ResponseWriter, req *http.Request) (que *Request, err
 	// url
 	que.Url = req.URL.String()
 
-	// 从url读参数
+	// 从url读标准参数
 	if v := req.FormValue("skip"); len(v) > 0 {
 		if que.Skip, err = strconv.Atoi(v); err != nil {
 			return
@@ -125,6 +126,12 @@ func SerializeHttp(rw http.ResponseWriter, req *http.Request) (que *Request, err
 	}
 	if que.Limit == 0 {
 		que.Limit = 10
+	}
+
+	// 从path读预设参数
+	que.Key = make(map[string]interface{})
+	for _k, _v := range mux.Vars(req) {
+		que.Key[_k] = _v
 	}
 
 	// method: header first
