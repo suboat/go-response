@@ -1,9 +1,9 @@
 package mux
 
 import (
-	"github.com/suboat/sorm/log"
-	"github.com/suboat/go-response/session"
 	"github.com/suboat/go-response"
+	"github.com/suboat/go-response/log"
+	"github.com/suboat/go-response/session"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -51,7 +51,7 @@ func (w *wsHandler) Bind(methodLis ...string) (err error) {
 	return
 }
 
-func (w *wsHandler) Handle(req *response.RequestMode) (res *response.Response) {
+func (w *wsHandler) Handle(req *response.Request) (res *response.Response) {
 	var h *response.LogicHandler
 	//
 	switch req.Method {
@@ -69,7 +69,7 @@ func (w *wsHandler) Handle(req *response.RequestMode) (res *response.Response) {
 		break
 	default:
 		// unsupport error
-		log.Error("wsHandler unsupport error")
+		log.Error("wsHandler unsupport error ", req.Method)
 		res = response.NewResponse(req)
 		res.Error = response.ErrRequestSupport
 		return
@@ -77,9 +77,10 @@ func (w *wsHandler) Handle(req *response.RequestMode) (res *response.Response) {
 	// default
 	if h == nil {
 		h = w.HandlerDefault
-		log.Debug(req.Method, w.HandlerDefault)
 		res = response.NewResponse(req)
 		res.Error = response.ErrRequestSupport
+		// debug
+		log.Debug(req.Method, w.HandlerDefault)
 		return
 	}
 	res = (*h)(req)
@@ -167,7 +168,7 @@ func (r *Router) ServeWebSocket(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	// handler
-	c.Handler = func(req *response.RequestMode) (res *response.Response) {
+	c.Handler = func(req *response.Request) (res *response.Response) {
 		// TODO: 将实际URL转为定义URL
 		log.Debug("ws recive url: ", req.Url)
 
