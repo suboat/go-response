@@ -1,7 +1,6 @@
 package mux
 
 import (
-	"github.com/suboat/sorm"
 	"github.com/suboat/sorm/log"
 	"github.com/suboat/go-response/session"
 	"github.com/suboat/go-response"
@@ -138,7 +137,7 @@ func (r *Router) ServeWebSocket(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	var (
-		uid orm.Uid
+		uid string
 		se  *session.Session
 		ws  *websocket.Conn
 		c   *response.ConnWs

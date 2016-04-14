@@ -1,14 +1,13 @@
 package response
 
 import (
-	"github.com/suboat/sorm"
-	"github.com/suboat/sorm/log"
+	"github.com/suboat/go-response/log"
 	"github.com/suboat/go-response/session"
 
-	"encoding/json"
-	"fmt"
 	//"github.com/gorilla/websocket"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -30,6 +29,14 @@ var (
 	AllowCorsHost = []string{}
 )
 
+// 摘要信息
+type Meta struct {
+	Skip   int `json:"skip"`
+	Limit  int `json:"limit"`
+	Total  int `json:"total"`
+	Length int `json:"length"`
+}
+
 // 后台接收格式 todo: 解决rest问题
 type RequestMode struct {
 	Url       string `maxLength:"512"`  // for websocket
@@ -42,28 +49,28 @@ type RequestMode struct {
 	VerifyCode string // 验证码
 
 	//Key   map[string]interface{} // search
-	Key   orm.M       // search
-	Sort  []string    // meta
-	Skip  int         // meta
-	Limit int         // meta
-	Data  interface{} // For Post, Put, Delete
+	Key   map[string]interface{} // search
+	Sort  []string               // meta
+	Skip  int                    // meta
+	Limit int                    // meta
+	Data  interface{}            // For Post, Put, Delete
 
-	QueryLimit  uint    // 查询限制
-	Uid         orm.Uid // 用户
-	SecureLevel uint    // 回话安全级别
-	RemoteIp    string  // 请求ip
+	QueryLimit  uint   // 查询限制
+	Uid         string // TODO: session, 识别用户信息
+	SecureLevel uint   // 回话安全级别
+	RemoteIp    string // 请求ip
 }
 
 // 后台返回格式
 type Response struct {
-	Meta          *orm.Meta      `json:"meta"`                // 摘要
+	Meta          *Meta          `json:"meta"`                // 摘要
 	Data          interface{}    `json:"data"`                // 数据
 	Error         error          `json:"-"`                   // 错误信息
 	ErrorStr      string         `json:"error,omitempty"`     // error格式无法输出, 需明确为字符串
 	Success       bool           `json:"success"`             // 如果error为空, success为true
 	RequestId     string         `json:"requestId,omitempty"` // for websocket callback
 	MessageWsPack *MessageWsPack `json:"-"`                   // for ws: 如果是websocket接口，push消息
-	Uid           orm.Uid        `json:"-"`                   // for ws: Logic handler 处理完后要改变当前会话uid, 为空则不改变
+	Uid           string         `json:"-"`                   // for ws: Logic handler 处理完后要改变当前会话uid, 为空则不改变
 }
 
 func (r *Response) ToJson() (s string) {
@@ -98,8 +105,8 @@ func SerializeHttp(rw http.ResponseWriter, req *http.Request) (que *RequestMode,
 		}
 	}
 
-	// 解析UID
 	que.Token = req.Header.Get(session.TokenTagHead)
+	// TODO:识别UID
 	if se, err = session.HttpSessionUid(rw, req); err != nil {
 		return
 	} else {
@@ -180,7 +187,7 @@ func SerializeHttpWs(conn *ConnWs, msgType int, msg []byte) (que *RequestMode, e
 			que.SecureLevel = se.Secure
 		}
 	} else {
-		que.Uid = orm.GuestUid
+		que.Uid = session.GuestUid
 	}
 	// TODO: change/update ws hub
 	if conn.Uid != que.Uid {
@@ -190,43 +197,10 @@ func SerializeHttpWs(conn *ConnWs, msgType int, msg []byte) (que *RequestMode, e
 			return
 		}
 	}
-	log.Debug("debug conn guest: ", len(conn.Hub.ConnWss[orm.GuestUid]), "now:", conn.Uid, len(conn.Hub.ConnWss[conn.Uid]))
+	log.Debug("debug conn guest: ", len(conn.Hub.ConnWss[session.GuestUid]),
+		"now:", conn.Uid, len(conn.Hub.ConnWss[conn.Uid]))
 
 	return
-}
-
-// 通用的查操作，在此步骤前考虑注入
-func RequestQuery(s orm.Objects, q *RequestMode, d interface{}) (orm.Objects, *orm.Meta, error) {
-	var (
-		err error     = nil
-		m   *orm.Meta = nil
-	)
-	// 关键词
-	if q.Key != nil {
-		//s = s.Filter(orm.M(q.Key))
-		s = s.Filter(q.Key)
-	}
-	// 排序
-	if len(q.Sort) > 0 {
-		s = s.Sort(q.Sort...)
-	}
-	// 翻页
-	if q.Skip >= 0 {
-		s = s.Skip(q.Skip)
-	}
-	if q.Limit >= 0 {
-		s = s.Limit(q.Limit)
-	}
-	// 返回数据
-	if err == nil && d != nil {
-		err = s.All(d)
-	}
-	// meta 信息
-	if err == nil {
-		m, err = s.Meta()
-	}
-
-	return s, m, err
 }
 
 // 后台处理返回

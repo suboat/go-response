@@ -1,8 +1,7 @@
 package session
 
 import (
-	"github.com/suboat/sorm"
-	"github.com/suboat/sorm/log"
+	"github.com/suboat/go-response/log"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gorilla/sessions"
@@ -29,9 +28,6 @@ var (
 	TokenKidAdmin   = "admin"            //
 	TokenExpDefault = time.Hour * 72     // token默认有效期
 	TokenSessionKey = []byte(SessionKey) // byte slice
-
-	// config
-	UserModel orm.Model // 用户数据库,由外部package赋值维护
 )
 
 const (
@@ -51,16 +47,20 @@ const (
 	UserStatusReLogin              // 6 option: 需要重新登录:如修改密码后
 )
 
+const (
+	GuestUid = "11111111-1111-1111-1111-111111111111"
+)
+
 type Session struct {
-	Uid    orm.Uid // uid
-	Secure uint    // 安全级别
+	Uid    string // uid
+	Secure uint   // 安全级别
 }
 
 // 含有uid字段与某些字段的model: 只为对应数据库映射，取uid
 // pg issue: missing destination name https://github.com/jmoiron/sqlx/issues/143
 type userBase struct {
-	Uid    orm.Uid // uid
-	Status int     // 当前用户状态 正常,待激活,冻结,禁用
+	Uid    string // uid
+	Status int    // 当前用户状态 正常,待激活,冻结,禁用
 }
 
 // 从http读Session
@@ -106,17 +106,17 @@ func HttpSessionUid(rw http.ResponseWriter, req *http.Request) (se *Session, err
 func TokenToUid(tokenStr string) (se *Session, err error) {
 	se = new(Session)
 	var (
-		uid    orm.Uid
+		uid    string
 		ok     bool
 		v      interface{}
-		_uid   orm.Uid
+		_uid   string
 		token  *jwt.Token
 		_uid_s string
 		//u      *userBase // 对应的用户
 	)
 
 	// 默认uid
-	uid = orm.GuestUid
+	uid = GuestUid
 
 	if token, err = ParseTokenString(tokenStr); err != nil {
 		return
@@ -127,10 +127,10 @@ func TokenToUid(tokenStr string) (se *Session, err error) {
 		if _uid_s, ok = v.(string); ok != true {
 			return
 		}
-		_uid = orm.Uid(_uid_s)
-		if err = _uid.Valid(); err != nil {
-			return
-		}
+		_uid = _uid_s
+		//if err = _uid.Valid(); err != nil {
+		//	return
+		//}
 		uid = _uid
 	}
 

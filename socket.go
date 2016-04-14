@@ -1,9 +1,8 @@
 package response
 
 import (
-	"github.com/suboat/sorm"
-	"github.com/suboat/sorm/log"
 	"github.com/gorilla/websocket"
+	"github.com/suboat/go-response/log"
 
 	//"net/http"
 	"encoding/json"
@@ -56,7 +55,7 @@ type HubWs struct {
 	lock *sync.RWMutex
 
 	// Registered ConnWss.
-	ConnWss map[orm.Uid]map[*ConnWs]bool
+	ConnWss map[string]map[*ConnWs]bool
 	//ConnWss map[orm.Uid][]*ConnWs
 	//ConnWss map[*ConnWs]bool
 
@@ -76,7 +75,7 @@ type ConnWs struct {
 	Ws *websocket.Conn
 
 	// uid
-	Uid orm.Uid
+	Uid string
 
 	// Buffered channel of outbound messages.
 	Send     chan []byte
@@ -97,13 +96,13 @@ type MessageWs struct {
 
 //
 type MessageWsPack struct {
-	TargetUid   *orm.Uid       `json:"-"` // 推送到用户
-	TargetOther *orm.Accession `json:"-"` // 其它规则的推送
-	MessageLis  []*MessageWs   `json:"messageLis"`
+	TargetUid   *string      `json:"-"` // 推送到用户
+	TargetOther *string      `json:"-"` // 其它规则的推送
+	MessageLis  []*MessageWs `json:"messageLis"`
 }
 
 // change conn uid
-func (c *ConnWs) UidUpdate(uid orm.Uid) (err error) {
+func (c *ConnWs) UidUpdate(uid string) (err error) {
 	if c.Hub == nil {
 		err = ErrSocketConnHubEmpty
 		return
@@ -121,7 +120,7 @@ func (c *ConnWs) UidUpdate(uid orm.Uid) (err error) {
 }
 
 // make user map in hub
-func (h *HubWs) EnsureUser(uid orm.Uid) (err error) {
+func (h *HubWs) EnsureUser(uid string) (err error) {
 	// TODO: lock whith register
 	h.lock.Lock()
 	defer h.lock.Unlock()
@@ -132,7 +131,7 @@ func (h *HubWs) EnsureUser(uid orm.Uid) (err error) {
 }
 
 // broadcasts to users
-func (h *HubWs) BroadcastTo(uid *orm.Uid, data []byte) (err error) {
+func (h *HubWs) BroadcastTo(uid *string, data []byte) (err error) {
 	if uid == nil {
 		// broadcasts to all
 		h.Broadcast <- data
@@ -155,7 +154,7 @@ func (h *HubWs) BroadcastTo(uid *orm.Uid, data []byte) (err error) {
 }
 
 // broadcasts json
-func (h *HubWs) BroadcastJson(uid *orm.Uid, inf interface{}) (err error) {
+func (h *HubWs) BroadcastJson(uid *string, inf interface{}) (err error) {
 	var data = []byte{}
 	if data, err = json.Marshal(inf); err != nil {
 		return
@@ -284,7 +283,7 @@ func (c *ConnWs) WritePump() {
 	for {
 		select {
 		case message, ok := <-c.Send:
-			println("send bytea to", ok, c.Uid.String())
+			println("send bytea to", ok, c.Uid)
 			if !ok {
 				c.Write(websocket.CloseMessage, []byte{})
 				return
@@ -312,7 +311,7 @@ func (c *ConnWs) WritePump() {
 }
 
 // broadcasts to users
-func (c *ConnWs) Broadcast(uid *orm.Uid, data []byte) (err error) {
+func (c *ConnWs) Broadcast(uid *string, data []byte) (err error) {
 	return c.Hub.BroadcastTo(uid, data)
 	//if uid == nil {
 	//	// broadcasts to all
@@ -336,7 +335,7 @@ func (c *ConnWs) Broadcast(uid *orm.Uid, data []byte) (err error) {
 }
 
 // broadcasts json
-func (c *ConnWs) BroadcastJson(uid *orm.Uid, inf interface{}) (err error) {
+func (c *ConnWs) BroadcastJson(uid *string, inf interface{}) (err error) {
 	return c.Hub.BroadcastJson(uid, inf)
 	//var data = []byte{}
 	//if data, err = json.Marshal(inf); err != nil {
@@ -357,7 +356,7 @@ func NewHubWs(h *HubWs) (n *HubWs) {
 		Broadcast:  make(chan []byte),
 		Register:   make(chan *ConnWs),
 		Unregister: make(chan *ConnWs),
-		ConnWss:    make(map[orm.Uid]map[*ConnWs]bool),
+		ConnWss:    make(map[string]map[*ConnWs]bool),
 		//ConnWss: make(map[*ConnWs]bool),
 	}
 	return
